@@ -9,9 +9,11 @@ class Ciudadano extends Model
     protected $primaryKey = 'id_ciudadano';
 
     protected $fillable = [
-        'id_usuario',
-        'telefono',
-        'direccion'
+       'id_usuario',
+        'puntos_acumulados',  
+        'nivel',             
+        'logros',              
+        'preferencias',        
     ];
 
     public function user()

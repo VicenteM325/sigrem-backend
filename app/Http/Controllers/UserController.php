@@ -2,73 +2,103 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Http\Requests\StoreUserRequest;
+use App\DTOs\UserDTO;
 use App\Services\UserService;
-use App\Models\User;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
     public function __construct(
         private UserService $userService
     ) {}
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(){
 
-        $users = User::with(['roles', 'conductor', 'ciudadano'])->get();
-
-        return response()->json([
-            'users' => $users->map(function($user) {
-                return [
-                    'id' => $user->id,
-                    'nombres' => $user->nombres,
-                    'apellidos' => $user->apellidos,
-                    'email' => $user->email,
-                    'roles' => $user->roles->pluck('name'),
-                    'perfil' => $user->conductor ?? $user->ciudadano ?? null
-                ];
-            })
-        ]);
+    public function index(): JsonResponse
+    {
+        $users = $this->userService->getAllUsers();
+        
+        return response()->json(['users' => $users]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreUserRequest $request)
+    public function store(StoreUserRequest $request): JsonResponse
     {
-        $user = $this->userService->create(
-            $request->validated()
-        );
-
-        return response()->json([
-            'message' => 'Usuario creado correctamente',
-            'user' => $user
-        ], 201);
+        try {
+            $userDTO = UserDTO::fromRequest($request->validated());
+            
+            $profileData = array_merge(
+                $request->only(['licencia', 'fecha_vencimiento_licencia', 'categoria_licencia', 'disponible']),
+                $request->only(['preferencias'])
+            );
+            
+            $user = $this->userService->createUser($userDTO, $profileData);
+            
+            return response()->json([
+                'message' => 'Usuario creado correctamente',
+                'user' => $user
+            ], 201);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al crear el usuario',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(string $id): JsonResponse
     {
-        //
+        try {
+            $user = $this->userService->findUserById($id);
+            
+            return response()->json(['user' => $user]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Usuario no encontrado'
+            ], 404);
+        }
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(UpdateUserRequest $request, string $id): JsonResponse
     {
-        //
+        try {
+            $userDTO = UserDTO::fromRequest($request->validated());
+            
+            $profileData = array_merge(
+                $request->only(['licencia', 'fecha_vencimiento_licencia', 'categoria_licencia', 'disponible']),
+                $request->only(['puntos_acumulados', 'nivel', 'logros', 'preferencias'])
+            );
+            
+            $user = $this->userService->updateUser($id, $userDTO, $profileData);
+            
+            return response()->json([
+                'message' => 'Usuario actualizado correctamente',
+                'user' => $user
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al actualizar el usuario',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(string $id): JsonResponse
     {
-        //
+        try {
+            $this->userService->deleteUser($id);
+            
+            return response()->json([
+                'message' => 'Usuario eliminado correctamente'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al eliminar el usuario',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

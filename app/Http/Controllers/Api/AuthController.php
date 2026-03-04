@@ -3,40 +3,40 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\AuthService;
 use Illuminate\Http\Request;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\JsonResponse;
 
 class AuthController extends Controller
 {
-    public function login(Request $request){
+    public function __construct(
+        private AuthService $authService
+    ) {}
+
+    public function login(Request $request): JsonResponse
+    {
         $request->validate([
             'email' => 'required|email',
             'password' => 'required'
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $result = $this->authService->login($request->email, $request->password);
 
-        if(! $user || !Hash::check($request->password, $user->password)){
+        if (!$result) {
             return response()->json([
                 'message' => 'Credenciales incorrectas'
             ], 401);
         }
-        
-        $token = $user->createToken('api-token')->plainTextToken;
 
-        return response()->json([
-            'user' => $user,
-            'token' => $token
-        ]);
+        return response()->json($result);
     }
 
-    public function logout(Request $request){
-        $request->user()->currentAccessToken()->delete();
+    public function logout(Request $request): JsonResponse
+    {
+        $this->authService->logout($request->user());
 
         return response()->json([
-            'message' => 'Sesion cerrada'
+            'message' => 'Sesión cerrada correctamente'
         ]);
     }
-
 }

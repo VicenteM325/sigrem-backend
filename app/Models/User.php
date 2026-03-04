@@ -32,9 +32,10 @@ class User extends Authenticatable
         'nombres',
         'apellidos',
         'email',
+        'telefono',     
+        'direccion',    
+        'estado',
         'password',
-        'direccion',
-        'estado'
     ];
 
     protected static function booted()
@@ -78,6 +79,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'estado' => 'boolean',
         ];
     }
 
