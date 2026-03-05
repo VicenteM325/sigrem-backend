@@ -19,7 +19,9 @@ class AdminUserSeeder extends Seeder
             [
                 'name' => 'Administrador General',
                 'password' => Hash::make('password'),
-                'estado' => true
+                'estado' => true,
+                'telefono' => '40270651', 
+                'direccion' => 'Oficina Central',
             ]
         );
         $admin->assignRole('super-admin');
