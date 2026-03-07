@@ -52,7 +52,7 @@ class RutaRepository extends BaseRepository
             'puntosRuta' => fn($q) => $q->orderBy('orden'),
             'tiposResiduo',
             'diasRecoleccion',
-        // Hasta implementar asig    'asignaciones' => fn($q) => $q->with('camion.conductor.user')->latest()
+            'asignaciones' => fn($q) => $q->with('camion.conductor.user')->latest()
         ])->find($id);
     }
 

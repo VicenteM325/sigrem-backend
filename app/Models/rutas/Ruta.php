@@ -4,8 +4,10 @@ namespace App\Models\rutas;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\recoleccion\DiaRecoleccion;
+use App\Models\rutas\AsignacionRutaCamion;
 use App\Models\residuos\TipoResiduo;
 use App\Models\espacios\Zona;
+use Carbon\Carbon;
 
 class Ruta extends Model
 {
@@ -62,10 +64,10 @@ class Ruta extends Model
         return $this->hasMany(DiaRecoleccion::class, 'id_ruta');
     }
 
-   /* public function asignaciones()
+    public function asignaciones()
     {
         return $this->hasMany(AsignacionRutaCamion::class, 'id_ruta');
-    }*/
+    }
 
     // Accessors
     public function getHorarioAttribute(): string
@@ -105,6 +107,62 @@ class Ruta extends Model
                 'color' => $this->getColorByEstado()
             ]
         ];
+    }
+
+     /**
+     * Accessor para horario_inicio en formato 12h
+     */
+    public function getHorarioInicio12hAttribute(): ?string
+    {
+        return $this->formatearHora12($this->horario_inicio);
+    }
+
+    /**
+     * Accessor para horario_fin en formato 12h
+     */
+    public function getHorarioFin12hAttribute(): ?string
+    {
+        return $this->formatearHora12($this->horario_fin);
+    }
+
+    /**
+     * Accessor para horario completo en formato 12h
+     */
+    public function getHorarioCompleto12hAttribute(): ?string
+    {
+        $inicio = $this->horario_inicio_12h;
+        $fin = $this->horario_fin_12h;
+        
+        if ($inicio && $fin) {
+            return $inicio . ' - ' . $fin;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Método helper para formatear hora a 12h con AM/PM
+     */
+    private function formatearHora12($hora): ?string
+    {
+        if (!$hora) return null;
+        
+        if ($hora instanceof Carbon) {
+            return $hora->format('h:i A');
+        }
+        
+        try {
+            if (is_string($hora)) {
+                if (strlen($hora) <= 5) {
+                    $hora = $hora . ':00';
+                }
+                return Carbon::createFromFormat('H:i:s', $hora)->format('h:i A');
+            }
+        } catch (\Exception $e) {
+            return (string) $hora;
+        }
+        
+        return (string) $hora;
     }
 
     private function getColorByEstado(): string
