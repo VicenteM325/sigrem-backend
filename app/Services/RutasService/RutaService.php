@@ -336,10 +336,13 @@ class RutaService extends BaseService
 
         $base['geojson'] = $ruta->geojson;
 
+        $asignaciones = $ruta->asignaciones ?? collect();
+
         $base['estadisticas'] = [
-          'total_asignaciones' =>0,// hasta tener asig'total_asignaciones' => $ruta->asignaciones->count(),
-           'ultima_asignacion' =>null, // hasta tener asig'ultima_asignacion' => $ruta->asignaciones->first()?->fecha_programada?->format('Y-m-d'),
-            'total_puntos' => $ruta->puntosRuta->count()
+          'total_asignaciones' => $asignaciones->count(),
+            'ultima_asignacion' => $asignaciones->sortByDesc('fecha_programada')
+                                                ->first()?->fecha_programada?->format('Y-m-d'),
+            'total_puntos' => $ruta->puntosRuta->count(),
         ];
 
         return $base;
