@@ -29,9 +29,24 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'nombres',
+        'apellidos',
         'email',
+        'telefono',     
+        'direccion',    
+        'estado',
         'password',
     ];
+
+    protected static function booted()
+    {
+        static::saving(function ($user) {
+            $user->name = trim(
+                ($user->nombres ?? '') . ' ' . ($user->apellidos ?? '')
+            );
+        });
+    }
+
 
     /**
      * The attributes that should be hidden for serialization.
@@ -64,6 +79,18 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'estado' => 'boolean',
         ];
+    }
+
+    //Cardinalidad perfiles-usuario
+    public function conductor()
+    {
+        return $this->hasOne(Conductor::class,'id_usuario');
+    }
+
+    public function ciudadano()
+    {
+        return $this->hasOne(Ciudadano::class,'id_usuario');
     }
 }
