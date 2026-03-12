@@ -4,11 +4,15 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Api\EspaciosApi\ZonaController;
+use App\Http\Controllers\Api\EspaciosApi\PuntoVerdeController;
 use App\Http\Controllers\Api\RutasApi\RutaController;
 use App\Http\Controllers\Api\RutasApi\EstadoRutaController;
 use App\Http\Controllers\Api\CamionesApi\CamionController;
 use App\Http\Controllers\Api\RutasApi\AsignacionRutaCamionController;
 use App\Http\Controllers\Api\ResiduosApi\TipoResiduoController;
+use App\Http\Controllers\Api\RecoleccionApi\RecoleccionController;
+use App\Http\Controllers\Api\RecoleccionApi\PuntoRutaController;
+use App\Http\Controllers\Api\RecoleccionApi\PuntoRecoleccionBasuraController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -38,10 +42,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::middleware('permission:usuarios.ver')
         ->get('/usuarios/{id}', [UserController::class, 'show']);
-        
+
     Route::middleware('permission:usuarios.editar')
         ->put('/usuarios/{id}', [UserController::class, 'update']);
-        
+
     Route::middleware('permission:usuarios.eliminar')
         ->delete('/usuarios/{id}', [UserController::class, 'destroy']);
 
@@ -92,4 +96,37 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::patch('/{id}/estado', [AsignacionRutaCamionController::class, 'cambiarEstado']);
     });
     Route::apiResource('asignaciones-ruta-camion', AsignacionRutaCamionController::class);
+
+    // Puntos de Ruta
+    Route::prefix('puntos-ruta')->group(function () {
+        Route::get('/ruta/{idRuta}', [PuntoRutaController::class, 'porRuta']);
+        Route::post('/ruta/{idRuta}', [PuntoRutaController::class, 'guardar']);
+    });
+
+     // Puntos de recolección
+    Route::prefix('puntos-recoleccion-basura')->group(function () {
+        Route::post('/{id}/registrar', [PuntoRecoleccionBasuraController::class, 'registrarBasura']);
+        Route::post('/{id}/completar', [PuntoRecoleccionBasuraController::class, 'completarPunto']);
+        Route::post('/{id}/problema', [PuntoRecoleccionBasuraController::class, 'reportarProblema']);
+    });
+
+    // Recolecciones
+    Route::prefix('recolecciones')->group(function () {
+        Route::get('/pendientes', [RecoleccionController::class, 'pendientes']);
+        Route::get('/en-progreso', [RecoleccionController::class, 'enProgreso']);
+        Route::get('/estadisticas', [RecoleccionController::class, 'estadisticas']);
+        Route::get('/{idRecoleccion}/puntos', [PuntoRecoleccionBasuraController::class, 'getByRecoleccion']);
+        Route::post('/{id}/iniciar', [RecoleccionController::class, 'iniciar']);
+        Route::post('/{id}/finalizar', [RecoleccionController::class, 'finalizar']);
+        Route::post('/{id}/reportar-incidencia', [RecoleccionController::class, 'reportarIncidencia']);
+    });
+    Route::apiResource('recolecciones', RecoleccionController::class)->only(['index', 'show']);
+
+    // Puntos Verdes
+    Route::prefix('puntos-verdes')->group(function () {
+        Route::get('/por-zona/{idZona}', [PuntoVerdeController::class, 'porZona']);
+        Route::get('/select', [PuntoVerdeController::class, 'forSelect']);
+        Route::get('/mapa', [PuntoVerdeController::class, 'mapa']);
+    });
+    Route::apiResource('puntos-verdes', PuntoVerdeController::class);
 });

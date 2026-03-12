@@ -185,7 +185,7 @@ class RutaDTO
      */
     public function isValid(): bool
     {
-        return !empty($this->nombre_ruta) 
+        return !empty($this->nombre_ruta)
             && $this->id_zona > 0
             && $this->distancia_km > 0
             && !empty($this->dias_recoleccion)
