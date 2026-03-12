@@ -15,12 +15,12 @@ class AsignacionRutaCamionRepository extends BaseRepository
 
     public function findWithRelations(int $id): ?AsignacionRutaCamion
     {
-        return AsignacionRutaCamion::with(['ruta.zona', 'camion.conductor.user'])->find($id);
+        return AsignacionRutaCamion::with(['ruta.zona', 'camion.conductor.user', 'recoleccion'])->find($id);
     }
 
     public function getAllWithRelations(array $filtros = []): Collection
     {
-        $query = AsignacionRutaCamion::with(['ruta.zona', 'camion.conductor.user']);
+        $query = AsignacionRutaCamion::with(['ruta.zona', 'camion.conductor.user', 'recoleccion']);
 
         // Aplicar filtros
         if (isset($filtros['fecha'])) {

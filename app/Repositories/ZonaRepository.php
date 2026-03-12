@@ -14,7 +14,7 @@ class ZonaRepository extends BaseRepository
 
     public function findWithRelations(int $id): ?Zona
     {
-        return Zona::with(['rutas', 'tiposZona', 'puntosVerdes'])->find($id);
+        return Zona::with(['rutas', 'tiposZona'])->find($id); //Sin 'puntosVerdes' por ahora
     }
 
     public function getAllWithRutas(): Collection
