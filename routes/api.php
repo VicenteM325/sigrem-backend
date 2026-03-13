@@ -127,6 +127,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/por-zona/{idZona}', [PuntoVerdeController::class, 'porZona']);
         Route::get('/select', [PuntoVerdeController::class, 'forSelect']);
         Route::get('/mapa', [PuntoVerdeController::class, 'mapa']);
+        Route::get('/encargados-disponibles', [PuntoVerdeController::class, 'encargadosDisponibles']);
+        Route::get('/encargado/{id}', [PuntoVerdeController::class, 'getEncargadoInfo']);
+        Route::get('/mapa/completo', [PuntoVerdeController::class, 'getPuntosVerdesMapa']);
     });
     Route::apiResource('puntos-verdes', PuntoVerdeController::class);
 });
