@@ -13,6 +13,9 @@ use App\Http\Controllers\Api\ResiduosApi\TipoResiduoController;
 use App\Http\Controllers\Api\RecoleccionApi\RecoleccionController;
 use App\Http\Controllers\Api\RecoleccionApi\PuntoRutaController;
 use App\Http\Controllers\Api\RecoleccionApi\PuntoRecoleccionBasuraController;
+use App\Http\Controllers\Api\ContenedoresApi\ContenedorController;
+use App\Http\Controllers\Api\MaterialesApi\MaterialController;
+use App\Http\Controllers\Api\ReciclajeApi\EntregaReciclajeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -132,4 +135,31 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/mapa/completo', [PuntoVerdeController::class, 'getPuntosVerdesMapa']);
     });
     Route::apiResource('puntos-verdes', PuntoVerdeController::class);
+
+    // Contenedores
+    Route::prefix('contenedores')->group(function () {
+        Route::get('/por-llenar', [ContenedorController::class, 'porLlenar']);
+        Route::post('/programar-vaciado', [ContenedorController::class, 'programarVaciado']);
+        Route::post('/vaciados/{id}/realizar', [ContenedorController::class, 'realizarVaciado']);
+        Route::get('/vaciados/pendientes', [ContenedorController::class, 'vaciadosPendientes']);
+    });
+
+    Route::apiResource('contenedores', ContenedorController::class);
+
+    // Materiales
+    Route::prefix('materiales')->group(function () {
+        Route::get('/select', [MaterialController::class, 'forSelect']);
+    });
+    Route::apiResource('materiales', MaterialController::class)->only(['index', 'store']);
+
+    Route::prefix('entregas-reciclaje')->group(function () {
+        Route::get('/ciudadano/{idCiudadano}', [EntregaReciclajeController::class, 'porCiudadano']);
+        Route::get('/punto-verde/{idPuntoVerde}', [EntregaReciclajeController::class, 'porPuntoVerde']);
+        Route::get('/del-dia', [EntregaReciclajeController::class, 'delDia']);
+        Route::get('/estadisticas', [EntregaReciclajeController::class, 'estadisticas']);
+        Route::get('/ciudadano/{idCiudadano}/puntos', [EntregaReciclajeController::class, 'puntosCiudadano']);
+        Route::get('/materiales-top', [EntregaReciclajeController::class, 'materialesTop']);
+    });
+    Route::apiResource('entregas-reciclaje', EntregaReciclajeController::class)
+        ->only(['index', 'show', 'store']);
 });
