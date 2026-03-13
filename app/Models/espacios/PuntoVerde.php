@@ -3,6 +3,7 @@
 namespace App\Models\espacios;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
 
 class PuntoVerde extends Model
 {
@@ -17,7 +18,7 @@ class PuntoVerde extends Model
         'longitud',
         'capacidad_total_m3',
         'horario_atencion',
-        'encargado'
+        'id_encargado'
     ];
 
     protected $casts = [
@@ -30,5 +31,10 @@ class PuntoVerde extends Model
     public function zona()
     {
         return $this->belongsTo(Zona::class, 'id_zona');
+    }
+
+    public function encargado()
+    {
+        return $this->belongsTo(User::class, 'id_encargado');
     }
 }

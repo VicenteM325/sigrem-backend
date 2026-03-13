@@ -1,9 +1,9 @@
 <?php
-// app/Http/Controllers/Api/EspaciosApi/PuntoVerdeController.php
 
 namespace App\Http\Controllers\Api\EspaciosApi;
 
 use App\Services\EspaciosService\PuntoVerdeService;
+use App\Services\UserService;
 use App\DTOs\EspaciosDTOs\PuntoVerdeDTO;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -12,7 +12,8 @@ use App\Http\Controllers\Api\ApiController;
 class PuntoVerdeController extends ApiController
 {
     public function __construct(
-        private PuntoVerdeService $puntoVerdeService
+        private PuntoVerdeService $puntoVerdeService,
+        private UserService $userService
     ) {}
 
     /**
@@ -85,7 +86,7 @@ class PuntoVerdeController extends ApiController
                 'longitud' => 'required|numeric|between:-180,180',
                 'capacidad_total_m3' => 'required|numeric|min:0',
                 'horario_atencion' => 'required|string|max:100',
-                'encargado' => 'required|string|max:100'
+                'id_encargado' => 'required|exists:users,id'
             ]);
 
             $puntoDTO = PuntoVerdeDTO::fromRequest($request->all());
@@ -125,7 +126,7 @@ class PuntoVerdeController extends ApiController
                 'longitud' => 'required|numeric|between:-180,180',
                 'capacidad_total_m3' => 'required|numeric|min:0',
                 'horario_atencion' => 'required|string|max:100',
-                'encargado' => 'required|string|max:100'
+                'id_encargado' => 'required|exists:users,id'
             ]);
 
             $puntoDTO = PuntoVerdeDTO::fromRequest($request->all());
@@ -165,6 +166,83 @@ class PuntoVerdeController extends ApiController
         } catch (\Exception $e) {
             return $this->errorResponse(
                 'Error al eliminar punto verde: ' . $e->getMessage(),
+                500
+            );
+        }
+    }
+
+     /**
+     * Obtener usuarios con rol de encargado de punto verde
+     * GET /api/puntos-verdes/encargados-disponibles
+     */
+    public function encargadosDisponibles(): JsonResponse
+    {
+        $this->authorizePermission('puntos-verdes.editar');
+
+        try {
+            $users = $this->userService->getAllUsers();
+
+            $encargadosAsignados = \App\Models\espacios\PuntoVerde::whereNotNull('id_encargado')
+                ->pluck('id_encargado')
+                ->toArray();
+
+            $encargadosDisponibles = collect($users)
+                ->filter(function ($user) use ($encargadosAsignados) {
+                    $roles = $user['roles'];
+                    if ($roles instanceof \Illuminate\Support\Collection) {
+                        $roles = $roles->toArray();
+                    }
+
+                    return in_array('encargado-punto-verde', $roles) &&
+                           $user['estado'] &&
+                           !in_array($user['id'], $encargadosAsignados);
+                })
+                ->map(function ($user) {
+                    return [
+                        'value' => $user['id'],
+                        'label' => $user['nombres'] . ' ' . $user['apellidos'] . ' (' . $user['email'] . ')'
+                    ];
+                })
+                ->values()
+                ->toArray();
+
+            return $this->successResponse(
+                ['encargados' => $encargadosDisponibles],
+                'Encargados disponibles obtenidos correctamente'
+            );
+        } catch (\Exception $e) {
+            \Log::error('Error en encargadosDisponibles: ' . $e->getMessage());
+            return $this->errorResponse('Error al obtener encargados disponibles', 500);
+        }
+    }
+
+    /**
+     * Método helper para obtener datos completos del encargado
+     * GET /api/puntos-verdes/encargado/{id}
+     */
+    public function getEncargadoInfo(int $id): JsonResponse
+    {
+        $this->authorizePermission('puntos-verdes.ver');
+
+        try {
+            $user = $this->userService->findUserById($id);
+
+            if (!$user) {
+                return $this->notFoundResponse('Encargado no encontrado');
+            }
+
+            // Verificar que tiene el rol correcto
+            if (!in_array('encargado-punto-verde', $user['roles'])) {
+                return $this->errorResponse('El usuario no es un encargado de punto verde', 403);
+            }
+
+            return $this->successResponse(
+                ['encargado' => $user],
+                'Información del encargado obtenida correctamente'
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse(
+                'Error al obtener encargado: ' . $e->getMessage(),
                 500
             );
         }
@@ -237,6 +315,24 @@ class PuntoVerdeController extends ApiController
                 'Error al obtener coordenadas: ' . $e->getMessage(),
                 500
             );
+        }
+    }
+
+    /**
+     * Obtener todos los puntos verdes para el mapa
+     * GET /api/puntos-verdes/mapa/completo
+     */
+    public function getPuntosVerdesMapa(): JsonResponse
+    {
+        $this->authorizePermission('puntos-verdes.ver');
+        try {
+            $puntos = $this->puntoVerdeService->getPuntosVerdesMapa();
+            return $this->successResponse(
+                ['puntos' => $puntos],
+                'Puntos verdes obtenidos correctamente'
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse('Error al obtener puntos verdes: ' . $e->getMessage(), 500);
         }
     }
 }

@@ -13,8 +13,9 @@ class PuntoVerdeDTO
         public readonly float $longitud,
         public readonly float $capacidad_total_m3,
         public readonly string $horario_atencion,
-        public readonly string $encargado,
-        public readonly ?array $zona = []
+        public readonly ?int $id_encargado,
+        public readonly ?array $zona = [],
+        public readonly ?array $encargado = []
     ) {}
 
     public static function fromArray(array $data): self
@@ -28,8 +29,9 @@ class PuntoVerdeDTO
             longitud: (float) $data['longitud'],
             capacidad_total_m3: (float) $data['capacidad_total_m3'],
             horario_atencion: $data['horario_atencion'],
-            encargado: $data['encargado'],
-            zona: $data['zona'] ?? []
+            id_encargado: isset($data['id_encargado']) ? (int) $data['id_encargado'] : null,
+            zona: $data['zona'] ?? [],
+            encargado: $data['encargado'] ?? []
         );
     }
 
@@ -44,7 +46,7 @@ class PuntoVerdeDTO
             longitud: (float) $data['longitud'],
             capacidad_total_m3: (float) $data['capacidad_total_m3'],
             horario_atencion: $data['horario_atencion'],
-            encargado: $data['encargado']
+            id_encargado: isset($data['id_encargado']) ? (int) $data['id_encargado'] : null
         );
     }
 
@@ -58,6 +60,16 @@ class PuntoVerdeDTO
             ];
         }
 
+        $encargadoData = [];
+        if ($model->encargado) {
+            $encargadoData = [
+                'id' => $model->encargado->id,
+                'nombre' => $model->encargado->nombres . ' ' . $model->encargado->apellidos,
+                'email' => $model->encargado->email,
+                'telefono' => $model->encargado->telefono
+            ];
+        }
+
         return new self(
             id: $model->id_punto_verde,
             id_zona: $model->id_zona,
@@ -67,8 +79,9 @@ class PuntoVerdeDTO
             longitud: (float) $model->longitud,
             capacidad_total_m3: (float) $model->capacidad_total_m3,
             horario_atencion: $model->horario_atencion,
-            encargado: $model->encargado,
-            zona: $zonaData
+            id_encargado: $model->id_encargado,
+            zona: $zonaData,
+            encargado: $encargadoData
         );
     }
 
@@ -82,7 +95,7 @@ class PuntoVerdeDTO
             'longitud' => $this->longitud,
             'capacidad_total_m3' => $this->capacidad_total_m3,
             'horario_atencion' => $this->horario_atencion,
-            'encargado' => $this->encargado
+            'id_encargado' => $this->id_encargado
         ];
     }
 
