@@ -27,6 +27,11 @@ class DatabaseSeeder extends Seeder
         RolesSeeder::class,
         AdminUserSeeder::class,
         InitialData::class,
+        UserRolesSeeder::class,
+        ZonasSeeder::class,
+        RutasSeeder::class,
+        PuntosRutaSeeder::class,
+        CamionesSeeder::class,
     ]);
     }
 }
