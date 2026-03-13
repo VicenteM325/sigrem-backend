@@ -3,6 +3,7 @@
 namespace App\Models\espacios;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\rutas\Ruta;
 
 class Zona extends Model
 {
@@ -35,9 +36,9 @@ class Zona extends Model
     {
         return $this->hasMany(PuntoVerde::class, 'id_zona');
     }
-
+/*
     public function denuncias()
     {
         return $this->hasMany(Denuncia::class, 'id_zona');
-    }
+    }*/
 }

@@ -12,7 +12,8 @@ class AsignacionRutaCamionDTO
         public readonly string $estado,
         public readonly ?float $total_estimado_kg,
         public readonly ?array $ruta = [],
-        public readonly ?array $camion = []
+        public readonly ?array $camion = [],
+        public readonly ?array $recoleccion = null
     ) {}
 
     public static function fromArray(array $data): self
@@ -25,7 +26,8 @@ class AsignacionRutaCamionDTO
             estado: $data['estado'] ?? 'programada',
             total_estimado_kg: isset($data['total_estimado_kg']) ? (float) $data['total_estimado_kg'] : null,
             ruta: $data['ruta'] ?? [],
-            camion: $data['camion'] ?? []
+            camion: $data['camion'] ?? [],
+            recoleccion: $data['recoleccion'] ?? null
         );
     }
 
@@ -39,7 +41,8 @@ class AsignacionRutaCamionDTO
             estado: $data['estado'] ?? 'programada',
             total_estimado_kg: isset($data['total_estimado_kg']) ? (float) $data['total_estimado_kg'] : null,
             ruta: $data['ruta'] ?? [],
-            camion: $data['camion'] ?? []
+            camion: $data['camion'] ?? [],
+            recoleccion: $data['recoleccion'] ?? null
         );
     }
 
@@ -67,7 +70,8 @@ class AsignacionRutaCamionDTO
                 $conductorInfo = [
                     'id' => $model->camion->conductor->id_conductor,
                     'nombre_completo' => $model->camion->conductor->user->nombres . ' ' . $model->camion->conductor->user->apellidos,
-                    'licencia' => $model->camion->conductor->licencia
+                    'licencia' => $model->camion->conductor->licencia,
+                    'categoria' => $model->camion->conductor->categoria_licencia
                 ];
             }
 
@@ -79,6 +83,17 @@ class AsignacionRutaCamionDTO
                 'conductor' => $conductorInfo
             ];
         }
+        $recoleccionData = null;
+        if ($model->recoleccion) {
+            $recoleccionData = [
+                'id_recoleccion' => $model->recoleccion->id_recoleccion,
+                'estado' => $model->recoleccion->estado_recoleccion,
+                'hora_inicio' => $model->recoleccion->hora_inicio?->format('Y-m-d H:i:s'),
+                'hora_fin' => $model->recoleccion->hora_fin?->format('Y-m-d H:i:s'),
+                'basura_recolectada' => $model->recoleccion->basura_recolectada_ton,
+                'observaciones' => $model->recoleccion->observaciones
+            ];
+        }
 
         return new self(
             id: $model->id_asignacion,
@@ -88,7 +103,8 @@ class AsignacionRutaCamionDTO
             estado: $model->estado,
             total_estimado_kg: $model->total_estimado_kg ? (float) $model->total_estimado_kg : null,
             ruta: $rutaData,
-            camion: $camionData
+            camion: $camionData,
+            recoleccion: $recoleccionData
         );
     }
 
@@ -111,7 +127,8 @@ class AsignacionRutaCamionDTO
             'estado' => $this->estado,
             'total_estimado' => $this->total_estimado_kg,
             'ruta' => $this->ruta,
-            'camion' => $this->camion
+            'camion' => $this->camion,
+            'recoleccion' => $this->recoleccion
         ];
     }
 }

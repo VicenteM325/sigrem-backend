@@ -3,10 +3,14 @@
 namespace App\Services\RutasService;
 
 use App\DTOs\RutasDTOs\AsignacionRutaCamionDTO;
+use App\DTOs\RecoleccionDTOs\RecoleccionDTO;
 use App\Repositories\AsignacionRutaCamionRepository;
 use App\Repositories\RutaRepository;
 use App\Repositories\CamionRepository;
 use App\Services\BaseService;
+use App\Services\RecoleccionService\RecoleccionService;
+use App\Services\RecoleccionService\GeneradorPuntosService;
+use App\Models\recoleccion\PuntoRecoleccionBasura;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -15,7 +19,9 @@ class AsignacionRutaCamionService extends BaseService
     public function __construct(
         private AsignacionRutaCamionRepository $asignacionRepository,
         private RutaRepository $rutaRepository,
-        private CamionRepository $camionRepository
+        private CamionRepository $camionRepository,
+        private RecoleccionService $recoleccionService,
+        private GeneradorPuntosService $generadorPuntosService
     ) {}
 
     /**
@@ -38,11 +44,11 @@ class AsignacionRutaCamionService extends BaseService
     public function getAsignacionById(int $id): ?array
     {
         $asignacion = $this->asignacionRepository->findWithRelations($id);
-        
+
         if (!$asignacion) {
             return null;
         }
-        
+
         return AsignacionRutaCamionDTO::fromModel($asignacion)->toResponseArray();
     }
 
@@ -71,10 +77,10 @@ class AsignacionRutaCamionService extends BaseService
 
         // Validar que no haya asignación para la misma ruta en la misma fecha
         $asignacionExistente = $this->asignacionRepository->findAsignacionActivaByRuta(
-            $asignacionDTO->id_ruta, 
+            $asignacionDTO->id_ruta,
             $asignacionDTO->fecha_programada
         );
-        
+
         if ($asignacionExistente) {
             throw new \Exception('La ruta ya tiene una asignación para esta fecha');
         }
@@ -84,33 +90,78 @@ class AsignacionRutaCamionService extends BaseService
             $asignacionDTO->id_camion,
             $asignacionDTO->fecha_programada
         );
-        
+
         if ($countAsignacionesCamion > 0) {
             throw new \Exception('El camión ya tiene una asignación para esta fecha');
         }
 
         // Calcular total estimado si no viene
-        if (!$asignacionDTO->total_estimado_kg) {
+      /*  if (!$asignacionDTO->total_estimado_kg) {
             $asignacionDTO->total_estimado_kg = $ruta->distancia_km * 100;
-        }
+        }*/
 
         try {
-            // Crear la asignación
+            // Crear asignación temporal
             $asignacion = $this->asignacionRepository->create($asignacionDTO->toArray());
+
+            // Crear recolección
+            $recoleccionDTO = new RecoleccionDTO(
+                id_recoleccion: null,
+                id_asignacion: $asignacion->id_asignacion,
+                hora_inicio: null,
+                hora_fin: null,
+                basura_recolectada_ton: null,
+                estado_recoleccion: 'programada',
+                observaciones: null,
+                asignacion: []
+            );
+
+            $recoleccion = $this->recoleccionService->createRecoleccion($recoleccionDTO);
+
+            // Generar puntos
+            $puntos = $this->generadorPuntosService->generarPuntos(
+                $asignacion,
+                $recoleccion['id_recoleccion']
+            );
+
+            // Calcular total en toneladas
+            $totalEstimadoKg = array_sum(array_column($puntos, 'volumen_estimado_kg'));
+            $totalEstimadoTon = $totalEstimadoKg / 1000;
+
+            // Capacidad del camión
+            if ($totalEstimadoTon > $camion->capacidad_toneladas) {
+                throw new \Exception(
+                    "El total estimado de basura ({$totalEstimadoTon} ton) " .
+                    "excede la capacidad del camión ({$camion->capacidad_toneladas} ton)"
+                );
+            }
+
+            // Actualizar asignación
+            $asignacion->total_estimado_kg = $totalEstimadoKg;
+            $asignacion->save();
+
+            // Guardar puntos
+            foreach ($puntos as $puntoData) {
+                PuntoRecoleccionBasura::create($puntoData);
+            }
+
         } catch (\Illuminate\Database\QueryException $e) {
-            if ($e->errorInfo[1] == 1062) { 
+            if ($e->errorInfo[1] == 1062) {
                 throw new \Exception('Ya existe una asignación para esta ruta en la fecha seleccionada');
             }
             throw $e;
         }
-        
-        $this->logInfo('Asignación creada', [
-            'id' => $asignacion->id_asignacion,
-            'ruta' => $asignacionDTO->id_ruta,
-            'camion' => $asignacionDTO->id_camion,
-            'fecha' => $asignacionDTO->fecha_programada
-        ]);
-        
+
+         $this->logInfo('Asignación, recolección y puntos creados', [
+                'id_asignacion' => $asignacion->id_asignacion,
+                'id_recoleccion' => 'generada automáticamente',
+                'ruta' => $asignacionDTO->id_ruta,
+                'camion' => $asignacionDTO->id_camion,
+                'fecha' => $asignacionDTO->fecha_programada,
+                'total_estimado_kg' => $asignacion->fresh()->total_estimado_kg
+
+            ]);
+
         return AsignacionRutaCamionDTO::fromModel($asignacion->fresh(['ruta.zona', 'camion.conductor.user']))->toResponseArray();
     });
 }
@@ -122,7 +173,7 @@ class AsignacionRutaCamionService extends BaseService
     {
         return $this->executeInTransaction(function () use ($id, $asignacionDTO) {
             $asignacion = $this->asignacionRepository->find($id);
-        
+
             if (!$asignacion) {
                 throw new \Exception('Asignación no encontrada');
             }
@@ -134,14 +185,14 @@ class AsignacionRutaCamionService extends BaseService
 
             // Preparar datos para actualizar
             $datosActualizar = $asignacionDTO->toArray();
-        
+
             // Si se está cambiando la ruta o la fecha, validar unique constraint
             if ((isset($datosActualizar['id_ruta']) && $datosActualizar['id_ruta'] != $asignacion->id_ruta) ||
                 (isset($datosActualizar['fecha_programada']) && $datosActualizar['fecha_programada'] != $asignacion->fecha_programada->format('Y-m-d'))) {
-            
+
                 $nuevaRuta = $datosActualizar['id_ruta'] ?? $asignacion->id_ruta;
                 $nuevaFecha = $datosActualizar['fecha_programada'] ?? $asignacion->fecha_programada->format('Y-m-d');
-            
+
                 $asignacionExistente = $this->asignacionRepository->findAsignacionActivaByRuta($nuevaRuta, $nuevaFecha);
                 if ($asignacionExistente && $asignacionExistente->id_asignacion !== $id) {
                     throw new \Exception('Ya existe otra asignación para esta ruta en la fecha seleccionada');
@@ -154,7 +205,7 @@ class AsignacionRutaCamionService extends BaseService
                 if (!$camion) {
                     throw new \Exception('El camión especificado no existe');
                 }
-            
+
                 if ($camion->estado_vehiculo !== 'operativo') {
                     throw new \Exception('El camión no está operativo para ser asignado');
                 }
@@ -164,7 +215,7 @@ class AsignacionRutaCamionService extends BaseService
                     $datosActualizar['id_camion'],
                     $fechaAsignacion
                 );
-            
+
                 if ($countAsignacionesCamion > 0) {
                     throw new \Exception('El nuevo camión ya tiene una asignación para esta fecha');
                 }
@@ -179,9 +230,9 @@ class AsignacionRutaCamionService extends BaseService
                 }
                 throw $e;
             }
-        
+
             $this->logInfo('Asignación actualizada', ['id' => $id]);
-        
+
             return AsignacionRutaCamionDTO::fromModel($asignacion->fresh(['ruta.zona', 'camion.conductor.user']))->toResponseArray();
         });
     }
@@ -193,7 +244,7 @@ class AsignacionRutaCamionService extends BaseService
     {
         return $this->executeInTransaction(function () use ($id, $estado, $datosAdicionales) {
             $asignacion = $this->asignacionRepository->find($id);
-            
+
             if (!$asignacion) {
                 throw new \Exception('Asignación no encontrada');
             }
@@ -225,22 +276,45 @@ class AsignacionRutaCamionService extends BaseService
 
             // Actualizar estado
             $asignacion->estado = $estado;
-            
+
             if ($datosAdicionales && $estado === 'completada') {
                 if (isset($datosAdicionales['total_real_kg'])) {
                     $asignacion->total_estimado_kg = $datosAdicionales['total_real_kg'];
                 }
             }
-            
+
             $asignacion->save();
 
-            $this->logInfo('Estado de asignación actualizado', [
+            if ($asignacion->recoleccion) {
+                if ($estado === 'en_proceso' && $asignacion->recoleccion->estado_recoleccion === 'programada') {
+                    // Si la asignación pasa a en_proceso, iniciar recolección automáticamente
+                    $this->recoleccionService->iniciarRecoleccion($asignacion->recoleccion->id_recoleccion);
+                } elseif ($estado === 'completada' && $asignacion->recoleccion->estado_recoleccion === 'en_proceso') {
+                    // Si la asignación pasa a completada y hay datos, finalizar recolección
+                    if ($datosAdicionales && isset($datosAdicionales['total_real_kg'])) {
+                        $this->recoleccionService->finalizarRecoleccion(
+                            $asignacion->recoleccion->id_recoleccion,
+                            $datosAdicionales['total_real_kg'] / 1000, // Convertir kg a toneladas
+                            $datosAdicionales['observaciones'] ?? null
+                        );
+                    }
+                } elseif ($estado === 'cancelada' && in_array($asignacion->recoleccion->estado_recoleccion, ['programada', 'en_proceso'])) {
+                    // Si se cancela la asignación, marcar recolección como incompleta
+                    $this->recoleccionService->reportarIncidencia(
+                        $asignacion->recoleccion->id_recoleccion,
+                        'Asignación cancelada',
+                        'incompleta'
+                    );
+                }
+            }
+
+            $this->logInfo('Estado de asignación actualizado y sincronizado con recolección', [
                 'id' => $id,
-                'estado_anterior' => $asignacion->getOriginal('estado'),
-                'nuevo_estado' => $estado
+                'estado_asignacion' => $estado,
+                'estado_recoleccion' => $asignacion->recoleccion?->estado_recoleccion
             ]);
 
-            return AsignacionRutaCamionDTO::fromModel($asignacion->fresh(['ruta.zona', 'camion.conductor.user']))->toResponseArray();
+            return AsignacionRutaCamionDTO::fromModel($asignacion->fresh(['ruta.zona', 'camion.conductor.user', 'recoleccion']))->toResponseArray();
         });
     }
 
@@ -251,7 +325,7 @@ class AsignacionRutaCamionService extends BaseService
     {
         return $this->executeInTransaction(function () use ($id) {
             $asignacion = $this->asignacionRepository->find($id);
-            
+
             if (!$asignacion) {
                 throw new \Exception('Asignación no encontrada');
             }
@@ -261,10 +335,19 @@ class AsignacionRutaCamionService extends BaseService
                 throw new \Exception('No se puede eliminar una asignación en proceso o completada');
             }
 
+            // Verificar si la recolección ya fue iniciada
+            if ($asignacion->recoleccion && $asignacion->recoleccion->estado_recoleccion !== 'programada') {
+                throw new \Exception('No se puede eliminar una asignación cuya recolección ya fue iniciada');
+            }
+
+            // Eliminar la recolección asociada primero (por la foreign key)
+            if ($asignacion->recoleccion) {
+                $asignacion->recoleccion->delete();
+            }
             $result = $this->asignacionRepository->delete($asignacion);
-            
+
             $this->logInfo('Asignación eliminada', ['id' => $id]);
-            
+
             return $result;
         });
     }
@@ -275,7 +358,7 @@ class AsignacionRutaCamionService extends BaseService
     public function getAsignacionesPendientes(): array
     {
         $asignaciones = $this->asignacionRepository->getAsignacionesPendientes();
-        
+
         return [
             'asignaciones' => $asignaciones->map(fn($asignacion) => AsignacionRutaCamionDTO::fromModel($asignacion)->toResponseArray()),
             'total' => $asignaciones->count(),
@@ -289,7 +372,7 @@ class AsignacionRutaCamionService extends BaseService
     public function getAsignacionesByFecha(string $fecha): array
     {
         $asignaciones = $this->asignacionRepository->getAsignacionesByFecha($fecha);
-        
+
         return [
             'asignaciones' => $asignaciones->map(fn($asignacion) => AsignacionRutaCamionDTO::fromModel($asignacion)->toResponseArray()),
             'fecha' => $fecha,
@@ -303,7 +386,7 @@ class AsignacionRutaCamionService extends BaseService
     public function getCalendario(string $fechaInicio, string $fechaFin): array
     {
         $asignaciones = $this->asignacionRepository->getAsignacionesByRangoFechas($fechaInicio, $fechaFin);
-        
+
         // Agrupar por fecha para calendario
         $calendario = [];
         foreach ($asignaciones as $asignacion) {
@@ -315,7 +398,7 @@ class AsignacionRutaCamionService extends BaseService
                     'total' => 0
                 ];
             }
-            
+
             $calendario[$fecha]['asignaciones'][] = AsignacionRutaCamionDTO::fromModel($asignacion)->toResponseArray();
             $calendario[$fecha]['total']++;
         }
@@ -343,7 +426,7 @@ class AsignacionRutaCamionService extends BaseService
     public function verificarDisponibilidadCamion(int $idCamion, string $fecha): array
     {
         $camion = $this->camionRepository->find($idCamion);
-        
+
         if (!$camion) {
             throw new \Exception('Camión no encontrado');
         }

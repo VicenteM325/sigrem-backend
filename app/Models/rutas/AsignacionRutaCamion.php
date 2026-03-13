@@ -5,6 +5,7 @@ namespace App\Models\rutas;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\rutas\Ruta;
 use App\Models\camiones\Camion;
+use App\Models\recoleccion\Recoleccion;
 
 class AsignacionRutaCamion extends Model
 {
@@ -50,5 +51,9 @@ class AsignacionRutaCamion extends Model
     public function scopeEntreFechas($query, $fechaInicio, $fechaFin)
     {
         return $query->whereBetween('fecha_programada', [$fechaInicio, $fechaFin]);
+    }
+    public function recoleccion()
+    {
+        return $this->hasOne(Recoleccion::class, 'id_asignacion', 'id_asignacion');
     }
 }
