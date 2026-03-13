@@ -88,6 +88,7 @@ class RolesSeeder extends Seeder
             'denuncias.crear',
             'denuncias.subir-evidencia',
             'puntos-verdes.ver',
+            'rutas.ver',
         ]);
 
         // AUDITOR

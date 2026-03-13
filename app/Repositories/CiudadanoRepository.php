@@ -37,4 +37,8 @@ class CiudadanoRepository
     {
         return Ciudadano::where('id_usuario', $userId)->first();
     }
+    public function find(int $id): ?Ciudadano
+    {
+        return Ciudadano::find($id);
+    }
 }
