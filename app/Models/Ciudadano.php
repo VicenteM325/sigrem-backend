@@ -10,14 +10,18 @@ class Ciudadano extends Model
 
     protected $fillable = [
        'id_usuario',
-        'puntos_acumulados',  
-        'nivel',             
-        'logros',              
-        'preferencias',        
+        'puntos_acumulados',
+        'nivel',
+        'logros',
+        'preferencias',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class,'id_usuario');
+    }
+    public function entregas()
+    {
+        return $this->hasMany(EntregaReciclaje::class, 'id_ciudadano');
     }
 }
